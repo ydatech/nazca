@@ -54,6 +54,7 @@
 								+'<li><a data-font="Comic Sans MS">Comic Sans MS</a></li>'
 								+'<li><a data-font="Georgia">Georgia</a></li>'
 								+'<li><a data-font="Monotype Corsiva">Monotype Corsiva</a></li>'
+								+'<li><a data-font="PT Sans">PT Sans</a></li>'
 								+'<li><a data-font="Times New Roman">Times New Roman</a></li>'
 							+ '</ul></li>'
 						+'<li><a class="nzc-t-align" data-value="left"><i class="fa fa-align-left"></i></a></li>'

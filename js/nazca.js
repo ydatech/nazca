@@ -76,7 +76,14 @@ function nzc_escapeHtml(html) {
 	
 	
 	var _opts = {
-		workspace: workspace.FACEBOOK
+		
+		workspace: workspace.FACEBOOK,
+		
+		ratio_lock: true,
+		
+		resize_width_limit: 0,
+		resize_height_limit: 0
+		
 	};
 	
 	
@@ -149,9 +156,9 @@ function nzc_escapeHtml(html) {
 			var $_nazca_elements		= $('<div class="nazca-elements"></div>').appendTo($_nazca);
 			var $_nazca_resize_wrap		= $('<div class="nazca-resize-wrap" style="display:none;"><div class="nazca-resize-draggable"></div><a class="nazca-resize-control top-left"></a><a class="nazca-resize-control left"></a><a class="nazca-resize-control top-right"></a><a class="nazca-resize-control bottom-left"></a><a class="nazca-resize-control right"></a><a class="nazca-resize-control bottom-right"></a></div>').appendTo($_nazca);
 			var $_nazca_editor_controls	= $('<div class="nazca-editor-controls" style="display:none;"></div>').appendTo($_nazca);
+		 	var $_nazca_align_controls	= $('<div class="nazca-align-controls"><div class="nazca-align vertical na-vl"></div><div class="nazca-align vertical na-vr"></div><div class="nazca-align vertical na-vc"></div></div>').appendTo($_nazca);
 			
-			
-			
+
 			
 			var _space_id = ++_last_space_id;
 			_nazca_spaces[_space_id] = {
@@ -161,6 +168,10 @@ function nzc_escapeHtml(html) {
 				$nazca_elements:		$_nazca_elements,
 				$nazca_resize_wrap:		$_nazca_resize_wrap,
 				$nazca_editor_controls:	$_nazca_editor_controls,
+				$nazca_align_controls:	$_nazca_align_controls,
+				
+				resize_wrap_border_width:	Math.round( parseFloat( $_nazca_resize_wrap.css('border-left-width') ) ),
+				editor_controls_height:		$_nazca_editor_controls.height() + 10,
 				
 				opts: opts,
 				
@@ -178,6 +189,32 @@ function nzc_escapeHtml(html) {
 			
 			
 			
+			var _hideResize = function() {
+				
+				$_nazca_resize_wrap.hide();
+				$_nazca_editor_controls.hide();
+				
+				
+				//TODO: detach events?
+				//Get draggable jQuery Obj
+				var $_resize_draggable = _space.$nazca_resize_wrap.find('.nazca-resize-draggable');
+				$_resize_draggable.nzc_textarea('remove');
+			
+				if(_space['active_element_id']) {
+					
+					//If it was textarea and new value is empty string, we need to remove element
+					var elementData = _getElementData( _space_id, _space['active_element_id'] );
+					if(elementData && elementData.type == elementType.TEXT && elementData.desc == '') {
+						_removeElement( _space_id, _space['active_element_id'] );
+					}
+					
+					_space['active_element_id'] = 0;
+							 
+				}
+				
+				
+				
+			}
 			
 			$(document).bind('mousedown dragstart touchstart', 
 							function(e) {
@@ -191,18 +228,7 @@ function nzc_escapeHtml(html) {
 												&& !$e.parents('.nazca-editor-controls').length && !$e.hasClass('nazca-editor-controls')
 												) {
 												
-												
-												$_nazca_resize_wrap.hide();
-												$_nazca_editor_controls.hide();
-												
-												
-												//TODO: detach events?
-												//Get draggable jQuery Obj
-												var $_resize_draggable = _space.$nazca_resize_wrap.find('.nazca-resize-draggable');
-												$_resize_draggable.nzc_textarea('remove');
-											
-											
-												_space['active_element_id'] = 0;
+												_hideResize();
 												
 											}
 										}
@@ -211,12 +237,29 @@ function nzc_escapeHtml(html) {
 			
 			$(document).bind('keydown', 
 				function(e) {
-					if(e.which == keyCode.DELETE && _space['active_element_id']) {
+					
+					switch(e.which) {
 						
-						var element_id = _space['active_element_id'];
-						_removeElement( _space_id, element_id );
-						 
+						case keyCode.ESCAPE:
+							_hideResize();
+						break;
+						
+						case keyCode.DELETE:
+						//TODO: if textarea used do not delete element
+						/*
+							if(_space['active_element_id']) {
+								
+								var element_id = _space['active_element_id'];
+								_removeElement( _space_id, element_id );
+								 
+							}
+						*/
+						break;
+						
+						default:
+						break;
 					}
+
 				}
 			);
 			
@@ -418,7 +461,7 @@ function nzc_escapeHtml(html) {
 		var _space = _nazca_spaces[_space_id];
 		var $element;
 		
-		if( Object.prototype.toString.call( elements ) !== '[object Array]' ) {
+		if( !_isArray( elements ) ) {
 			elements = [elements];
 		}
 
@@ -476,10 +519,13 @@ function nzc_escapeHtml(html) {
 			}
 
 			//Scale
-			_w	= Math.round(_e['width'] * scale_delta);
-			_h	= Math.round(_e['height'] * scale_delta);
-			_l	= Math.round(_e['x'] * scale_delta);
-			_t	= Math.round(_e['y'] * scale_delta);
+			_e['css'] = {};
+			_e['css']['zIndex']	= _e['id'];
+			_e['css']['width']	= _w	= Math.round(_e['width'] * scale_delta);
+			_e['css']['height']	= _h	= Math.round(_e['height'] * scale_delta);
+			_e['css']['left']	= _l	= Math.round(_e['x'] * scale_delta);
+			_e['css']['top']	= _t	= Math.round(_e['y'] * scale_delta);
+			
 				
 			switch( _e['type'] ) {	
 						
@@ -615,41 +661,52 @@ function nzc_escapeHtml(html) {
 		
 		var parent_container = _space.$nazca_elements.get(0);
 					
-		var border_width = Math.round( parseFloat( _space.$nazca_resize_wrap.css('border-left-width') ) );
-		var editor_controls_height = _space.$nazca_editor_controls.height() + 10;
+		var resize_wrap_border_width	= _space.resize_wrap_border_width;
+		var editor_controls_height		= _space.editor_controls_height;
   
+  		
+		var	element_width_wb,
+			element_height_wb;
+
+		
+		var _element_id, _element;									
+																		
 		_attach_drag_events_handlers($element, { 
 										container: parent_container,
 										onDragStart: function() {
 											
-											_space.active_element_id = $element.attr('data-id');
+											
+											_element_id					= $element.attr('data-id');
+											_space.active_element_id	= _element_id;
+											
+											_element					= _getElementData( _space_id, _element_id ) ;
+											
+											
+											_element['css']['width']	= $element.width();
+											_element['css']['height']	= $element.height();
+											_element['css']['top']		= parseFloat($element.css('top'));
+											_element['css']['left']		= parseFloat($element.css('left'));
+		
+											element_width_wb	= _element['css']['width'] + resize_wrap_border_width * 2;
+											element_height_wb	= _element['css']['height'] + resize_wrap_border_width * 2;
+		
+											
+											
 																							
 											//Fit resize controls wrap to element size
 											//and set valid position
 											_space.$nazca_resize_wrap.css({
-												width:	$element.width() + border_width * 2,
-												height:	$element.height() + border_width * 2,
-												top:	parseFloat($element.css('top')) - border_width,
-												left:	parseFloat($element.css('left')) - border_width,
-												zIndex: parseInt($element.css('zIndex'))
+												width:	element_width_wb,
+												height:	element_height_wb,
+												top:	_element['css']['top'] - resize_wrap_border_width,
+												left:	_element['css']['left'] - resize_wrap_border_width,
+												zIndex: _element['css']['zIndex']//parseInt($element.css('zIndex'))
 											});
 											
 											
-											//Show editor controls
-											_space.$nazca_editor_controls.show();
-											_space.$nazca_editor_controls.css({
-												left:	parseFloat($element.css('left')) - border_width,
-												top:	parseFloat($element.css('top')) - border_width - editor_controls_height
-											});
-											//detach old control plugin
-											_space.$nazca_editor_controls.nzc_image_controls('remove');
-											_space.$nazca_editor_controls.nzc_text_controls('remove');
-											//attach necessary control plugin
-											if($element.hasClass('image')) {
-												_space.$nazca_editor_controls.nzc_image_controls('init', _space.active_element_id );
-											} else {
-												_space.$nazca_editor_controls.nzc_text_controls('init', _space.active_element_id );
-											}
+											
+											//Set and show valid controls
+											_init_editor_controls( _space_id );
 											
 											
 											
@@ -658,246 +715,24 @@ function nzc_escapeHtml(html) {
 											
 											
 											
-											//Get draggable jQuery Obj
-											var $_resize_draggable = _space.$nazca_resize_wrap.find('.nazca-resize-draggable');
-											
-											//Attach textarea if needed
-											$_resize_draggable.nzc_textarea('remove');
-											if($element.hasClass('text')) {
-												$_resize_draggable.nzc_textarea('init', _space.active_element_id );
-											}
-											
-											//Resize controls are above element.. So we need to attach drag-bindings to controls-wrap
-											//But first of all, detach old bindings from resize controls.. 
-											_detach_drag_events_handlers( $_resize_draggable );
-											_attach_drag_events_handlers( $_resize_draggable, { 
-												draggable: _space.$nazca_resize_wrap.get(0),
-												container: parent_container,
-												onDrag: function( data ) {
-													
-													$element.css({
-														'left': data.position[0] + border_width,
-														'top': data.position[1] + border_width
-													});
-													
-													_setElementAttr(_space_id, _space.active_element_id, {
-														'x': Math.round((data.position[0] + border_width) / _space.scale_delta),
-														'y': Math.round((data.position[1] + border_width) / _space.scale_delta)
-													});
-													
-													_space.$nazca_resize_wrap.css({
-														left:	data.position[0],
-														top:	data.position[1]
-													});	
-													
-													_space.$nazca_editor_controls.css({
-														left:		data.position[0],
-														top:		data.position[1] - editor_controls_height,
-														display:	'none'
-													});
-												},
-												onDragEnd: function(data) {
-													_space.$nazca_editor_controls.show();
-												}
-											});
+											//Init above element resize draggable
+  											_init_resize_draggable ( _space_id );
 											
 											
-  
-											
-											
-											
-											var _detachResizeControls = function(resize_control_pos_name) {
-												
-												_detach_drag_events_handlers( _space.$nazca_resize_wrap.find('.' + resize_control_pos_name));
-												
-											};
-											
-											var width, height;
-											var _attachResizeControls = function(resize_control_pos_name) {
-												
-												_attach_drag_events_handlers( _space.$nazca_resize_wrap.find('.' + resize_control_pos_name), {
-													
-													draggable: $element.get(0),
-													container: parent_container,
-													
-													onDragStart: function() {
-														width	= $element.width();
-														height	= $element.height();
-														
-														_space.$nazca_editor_controls.hide();
-													},
-													onDrag: function( data ) {
-														
-														var new_width = null, new_height = null;
-														
-														
-														switch(resize_control_pos_name) {
-															
-															case 'top-left':
-																new_width	= width - data.distance[0];
-																new_height	= height - data.distance[1];
-															break;
-															
-															case 'top-right':
-																new_width	= width + data.distance[0];
-																new_height	= height - data.distance[1];
-															break;
-															
-															case 'bottom-left':
-																new_width	= width - data.distance[0];
-																new_height	= height + data.distance[1];
-															break;
-															
-															case 'bottom-right':
-																new_width	= width + data.distance[0];
-																new_height	= height + data.distance[1];
-															break;
-															
-															
-															case 'left':
-																new_width	= width - data.distance[0];
-															break;
-															
-															
-															case 'right':
-																new_width	= width + data.distance[0];
-															break;																		
-															
-															
-															default:
-																_detach_drag_events_handlers( _space.$nazca_resize_wrap.find('.' + resize_control_pos_name));
-																return false;
-														
-														}
-  
-														
-														if( new_width <= 0 || ( new_height <= 0 && new_height !== null ) ) {
-															return false;
-														}
-														
-														
-														var resize_wrap_css = {
-															width: new_width + 2 * border_width,
-															height: (new_height !== null ? new_height : $element.height()) + 2 * border_width
-														};
-														
-														
-														var element_css = {
-															width:	new_width,
-															height:	new_height !== null ? new_height : 'auto'
-														};
-														
-														var editor_controls_css = {};
+											//Init resize controls
+  											_init_resize_controls ( _space_id , _element['type'] );
 
-														
-														switch(resize_control_pos_name) {
-															
-															case 'top-left':
-																resize_wrap_css['left']	= data.position[0] - border_width;
-																resize_wrap_css['top']	= data.position[1] - border_width;
-																
-																element_css['left']		= data.position[0];
-																element_css['top']		= data.position[1];
-																
-																editor_controls_css['left']	= element_css['left'];
-																editor_controls_css['top']	= resize_wrap_css['top'] -  editor_controls_height;
-																
-															break;
-															
-															case 'top-right':
-																resize_wrap_css['top']	= data.position[1] - border_width;
-																
-																element_css['top']		= data.position[1];
-																
-																editor_controls_css['top']	= resize_wrap_css['top'] - editor_controls_height;
-															break;
-															
-															case 'bottom-left':
-																resize_wrap_css['left']	= data.position[0] - border_width;
-																
-																element_css['left']		= data.position[0];
-																
-																editor_controls_css['left'] = element_css['left'];
-																
-															break;
-															
-															case 'left':
-																resize_wrap_css['left']	= data.position[0] - border_width;
-																
-																element_css['left'] = data.position[0];
-																
-																editor_controls_css['left'] = element_css['left'];
-															default:
-															break;
-														
-														}
-														
-														_space.$nazca_resize_wrap.css(resize_wrap_css);
-														$element.css(element_css);
-  
-														_space.$nazca_editor_controls.css(editor_controls_css);
-														
-														
-														
-														var attributes = {}; var i, v, k;
-														for(var i in element_css) {
-															
-															k = (i == 'left' ? 'x' : (i == 'top' ? 'y' : i) );
-															v = Math.round( element_css[i] / _space.scale_delta );
-															
-															attributes[k] = v;
-														}
-														_setElementAttr(_space_id, _space.active_element_id, attributes);
-														
-														
-														
-														
-														$element.trigger( 'nzc_resize', [ element_css ] );
-													
-													},
-													onDragEnd: function() {
-														_space.$nazca_editor_controls.show();
-													}
-												});
-																							
-											}
-																									
-  
-  
-											_detachResizeControls('top-left');
-											_detachResizeControls('top-right');
-											_detachResizeControls('bottom-left');
-											_detachResizeControls('bottom-right');
-											_detachResizeControls('left');
-											_detachResizeControls('right');
-											
-											_space.$nazca_resize_wrap.removeClass('nazca-wh-resizable nazca-w-resizable');
-												
-											if($element.hasClass('image')) {
-												
-												_attachResizeControls('top-left');
-												_attachResizeControls('top-right');
-												_attachResizeControls('bottom-left');
-												_attachResizeControls('bottom-right');
-												
-												_space.$nazca_resize_wrap.addClass('nazca-wh-resizable');
-												
-											} else {
-												
-												_attachResizeControls('left');
-												_attachResizeControls('right');
-												
-												_space.$nazca_resize_wrap.addClass('nazca-w-resizable');
-											
-											}
 											
 											
 										},
 										onDrag: function( data ) {
 											
+											_element['css']['left']	= data.position[0];
+											_element['css']['top']	= data.position[1];
+											
 											$element.css({
-												'left': data.position[0],
-												'top': data.position[1]
+												'left':	_element['css']['left'],
+												'top':	_element['css']['top']
 											});
 											
 											_setElementAttr(_space_id, _space.active_element_id, {
@@ -906,16 +741,23 @@ function nzc_escapeHtml(html) {
 													});
 											
 											_space.$nazca_resize_wrap.css({
-												left:	data.position[0] - border_width,
-												top:	data.position[1] - border_width
+												left:	data.position[0] - resize_wrap_border_width,
+												top:	data.position[1] - resize_wrap_border_width
 											});
 											
 											
 											_space.$nazca_editor_controls.css({
-												left:	data.position[0] - border_width	,
-												top:	data.position[1] - border_width - editor_controls_height,
+												left:	data.position[0] - resize_wrap_border_width	,
+												top:	data.position[1] - resize_wrap_border_width - editor_controls_height,
 												display: 'none'
 											});
+											
+											
+											
+											//Set align controls
+											_set_align_controls( _space_id );
+											
+											
 											
 										},
 										onDragEnd: function( data ) {
@@ -927,6 +769,445 @@ function nzc_escapeHtml(html) {
 										
 	}
 	
+	
+	
+	
+	/**
+	 * Desc
+	 * @param {int} Workspace ID 
+	 * @return {null} rendering result
+	 * @private
+	 */
+	function _init_resize_controls ( _space_id, _element_type ) {
+		
+		var _space		= _nazca_spaces[_space_id];
+		
+		//Resize controls
+		_detachResizeControls( _space_id, ['top-left', 'top-right', 'bottom-left', 'bottom-right', 'left', 'right']);
+
+		_space.$nazca_resize_wrap.removeClass('nazca-wh-resizable nazca-w-resizable');
+			
+		if( _element_type == elementType.IMAGE ) {
+			
+			_attachResizeControls( _space_id, ['top-left', 'top-right', 'bottom-left', 'bottom-right']);
+			_space.$nazca_resize_wrap.addClass('nazca-wh-resizable');
+			
+		} else {
+			
+			_attachResizeControls( _space_id, ['left', 'right']);
+			_space.$nazca_resize_wrap.addClass('nazca-w-resizable');
+		
+		}
+		
+	}
+	
+	
+	
+	
+	/**
+	 * Desc
+	 * @param {int} Workspace ID 
+	 * @return {null} rendering result
+	 * @private
+	 */
+	function _detachResizeControls ( _space_id, position_names ) {
+		
+		var _space		= _nazca_spaces[_space_id];
+		
+		//Convert to array if needed
+		if( ! _isArray( position_names) ) {
+			position_names = [position_names];
+		}
+		
+		for(var i in position_names) {
+			_detach_drag_events_handlers( _space.$nazca_resize_wrap.find('.' + position_names[i]));
+		}
+		
+	};
+	
+	
+	
+	
+	/**
+	 * Desc
+	 * @param {int} Workspace ID 
+	 * @return {null} rendering result
+	 * @private
+	 */
+	function _attachResizeControls( _space_id, position_names ) {
+		
+		var _space		= _nazca_spaces[_space_id];
+		
+		var _element_id = _space.active_element_id;
+		var _element	= _getElementData( _space_id, _element_id );
+		
+				
+		var $element	= _space.$nazca_elements.find('.element[data-id="' + _element_id + '"]');	
+		
+		//Convert to array if needed
+		if( ! _isArray( position_names) ) {
+			position_names = [ position_names ];
+		}
+		
+		var width, height, startDistance, endDistance, ratio;
+		var position_name;
+		
+		for(var i in position_names) {
+			
+			position_name = position_names[i];			
+			
+			(function( position_name ) {
+				
+				var $rc = _space.$nazca_resize_wrap.find('.' + position_name);
+				
+				_attach_drag_events_handlers( $rc , {
+					
+					draggable: $element.get(0),
+					container: _space.$nazca_elements.get(0),
+					
+					onDragStart: function() {
+						
+						width	= $element.width();
+						height	= $element.height();
+						
+						startDistance = Math.sqrt( width * width + height * height );
+						ratio = width / height;
+						
+						_space.$nazca_editor_controls.hide();
+						
+					},
+					
+					onDrag: function( data ) {
+						
+						var new_width = null, new_height = null;
+						
+	
+						switch( position_name ) {
+							
+							case 'top-left':
+								new_width	= width - data.distance[0];
+								new_height	= height - data.distance[1];
+							break;
+							
+							case 'top-right':
+								new_width	= width + data.distance[0];
+								new_height	= height - data.distance[1];
+							break;
+							
+							case 'bottom-left':
+								new_width	= width - data.distance[0];
+								new_height	= height + data.distance[1];
+							break;
+							
+							case 'bottom-right':
+							
+								new_width	= width + data.distance[0];
+								new_height	= height + data.distance[1];
+								
+											
+								
+								
+							break;
+							
+							
+							case 'left':
+								new_width	= width - data.distance[0];
+							break;
+							
+							
+							case 'right':
+								new_width	= width + data.distance[0];
+							break;																		
+							
+							
+							default:
+								_detach_drag_events_handlers( $rc );
+								return false;
+						
+						}
+				
+						//If ratio lock set, we need to modify width'n'height values. The bigger the distance from the start point, the bigger width'n'height
+						if( _space.opts.ratio_lock && new_height !== null ) {
+							
+							//TODO: new algorythm
+							var _sqrt = Math.sqrt( new_width * new_width + new_height * new_height );
+
+							new_width	= width * (_sqrt / startDistance);
+							new_height	= new_width / ratio;
+							
+							//if(data.position[0] > data.position[1]) {
+							//	new_height	= new_width / ratio;
+							//} else if( data.position[0] < data.position[1] ) {
+							//	new_width	= new_height * ratio;
+							//}
+							
+						}
+						
+						
+						//No need to resize items below resize limit
+						if( new_width <= _space.opts.resize_width_limit || ( new_height <= _space.opts.resize_height_limit && new_height !== null ) ) {
+							return false;
+						}
+						
+
+						
+						var resize_wrap_css = {
+							width: new_width + 2 * _space.resize_wrap_border_width,
+							height: (new_height !== null ? new_height : $element.height()) + 2 * _space.resize_wrap_border_width
+						};
+						
+						
+						
+						var editor_controls_css = {};
+						
+						
+						switch( position_name ) {
+							
+							case 'top-left':
+								
+								_element['css']['left']		= _element['css']['left'] + _element['css']['width'] - new_width;
+								_element['css']['top']		= _element['css']['top'] + _element['css']['height'] - new_height;
+						
+								resize_wrap_css['left']		= _element['css']['left'] - _space.resize_wrap_border_width;
+								resize_wrap_css['top']		= _element['css']['top'] - _space.resize_wrap_border_width;
+								
+								
+								editor_controls_css['left']	= _element['css']['left'];
+								editor_controls_css['top']	= resize_wrap_css['top'] -  _space.editor_controls_height;
+								
+							break;
+							
+							case 'top-right':
+							
+								_element['css']['top']		= _element['css']['top'] + _element['css']['height'] - new_height;
+							
+								resize_wrap_css['top']		= _element['css']['top'] - _space.resize_wrap_border_width;
+																
+								editor_controls_css['top']	= resize_wrap_css['top'] - _space.editor_controls_height;
+								
+							break;
+							
+							case 'bottom-left':
+								
+								_element['css']['left']		= _element['css']['left'] + _element['css']['width'] - new_width;
+
+								resize_wrap_css['left']		= _element['css']['left'] - _space.resize_wrap_border_width;
+																
+								editor_controls_css['left']	= _element['css']['left'];
+								
+							break;
+							
+							case 'left':
+								
+								_element['css']['left']		= _element['css']['left'] + _element['css']['width'] - new_width;
+								
+								resize_wrap_css['left']		= _element['css']['left'] - _space.resize_wrap_border_width;
+																
+								editor_controls_css['left']	= _element['css']['left'];
+								
+							default:
+							break;
+						
+						}
+						
+						//Save new width and height
+						_element['css']['width']	= new_width;
+						_element['css']['height']	= new_height !== null ? new_height : 'auto'
+						
+						
+						//Apply changes
+						_space.$nazca_resize_wrap.css(resize_wrap_css);
+						$element.css(_element['css']);
+						_space.$nazca_editor_controls.css(editor_controls_css);
+						
+						
+						//Recalc
+						var attributes = {}; var i, v, k;
+						for(var i in _element['css']) {
+							
+							k = (i == 'left' ? 'x' : (i == 'top' ? 'y' : i) );
+							v = Math.round( _element['css'][i] / _space.scale_delta );
+							
+							attributes[k] = v;
+						}
+						_setElementAttr(_space_id, _space.active_element_id, attributes);
+						
+						
+						
+						//Trigger evebt
+						$element.trigger( 'nzc_resize', [ _element['css'] ] );
+						
+						//Set align controls
+						_set_align_controls( _space_id );
+					
+					},
+					onDragEnd: function() {
+						_space.$nazca_editor_controls.show();
+					}
+				});
+				
+			})( position_name );
+			
+		}
+											  
+	}
+	
+	
+	
+											
+	/**
+	 * Desc
+	 * @param {int} Workspace ID 
+	 * @return {null} rendering result
+	 * @private
+	 */
+	function _init_resize_draggable ( _space_id ) {
+		
+		var _space		= _nazca_spaces[_space_id];
+		
+		var _element_id = _space.active_element_id;
+		var _element	= _getElementData( _space_id, _element_id );
+		
+		
+		//Get draggable jQuery Obj
+		var $_resize_draggable = _space.$nazca_resize_wrap.find('.nazca-resize-draggable');
+		
+		
+		//Resize controls are above element.. So we need to attach drag-bindings to controls-wrap
+		//But first of all, detach old bindings from resize controls.. 
+		_detach_drag_events_handlers( $_resize_draggable );
+		
+		
+		//Detach old textarea
+		$_resize_draggable.nzc_textarea('remove');
+		
+		
+		//Attach textarea if needed
+		if( _element['type'] == elementType.TEXT ) {
+			
+			$_resize_draggable.nzc_textarea('init', _element_id );
+			
+		}
+		else {
+			
+			_attach_drag_events_handlers( $_resize_draggable, { 
+			
+				draggable: _space.$nazca_resize_wrap.get(0),
+				container: _space.$nazca_elements.get(0),
+				
+				onDrag: function( data ) {
+					
+					_element['css']['left']	= data.position[0];
+					_element['css']['top']	= data.position[1];
+											
+					_space.$nazca_elements.find('.element[data-id="' + _element_id + '"]').css({
+						'left':	_element['css']['left'] + _space.resize_wrap_border_width,
+						'top':	_element['css']['top'] + _space.resize_wrap_border_width
+					});
+					
+					_setElementAttr(_space_id, _space.active_element_id, {
+						'x': Math.round((_element['css']['left'] + _space.resize_wrap_border_width) / _space.scale_delta),
+						'y': Math.round((_element['css']['top'] + _space.resize_wrap_border_width) / _space.scale_delta)
+					});
+					
+					_space.$nazca_resize_wrap.css({
+						left:	_element['css']['left'],
+						top:	_element['css']['top']
+					});	
+					
+					_space.$nazca_editor_controls.css({
+						left:		_element['css']['left'],
+						top:		_element['css']['top'] - _space.editor_controls_height,
+						display:	'none'
+					});
+					
+					
+					//Set align controls
+					_set_align_controls( _space_id );
+					
+				},
+				
+				onDragEnd: function(data) {
+					_space.$nazca_editor_controls.show();
+				}
+				
+			});
+			
+		}
+											
+	}
+	
+	
+	/**
+	 * Desc
+	 * @param {int} Workspace ID 
+	 * @return {null} rendering result
+	 * @private
+	 */
+	function _init_editor_controls( _space_id ) {
+		
+		var _space		= _nazca_spaces[_space_id];
+		
+		var _element_id = _space.active_element_id;
+		var _element	= _getElementData( _space_id, _element_id ) ;
+		
+		
+		//Show editor controls
+		_space.$nazca_editor_controls.show();
+		_space.$nazca_editor_controls.css({
+			left:	_element['css']['left'] - _space.resize_wrap_border_width,
+			top:	_element['css']['top'] - _space.resize_wrap_border_width - _space.editor_controls_height
+		});
+		
+		//detach old control plugin
+		_space.$nazca_editor_controls.nzc_image_controls('remove');
+		_space.$nazca_editor_controls.nzc_text_controls('remove');
+		
+		//attach necessary control plugin
+		if( _element['type'] == elementType.IMAGE ) {
+			_space.$nazca_editor_controls.nzc_image_controls('init', _element_id );
+		} else {
+			_space.$nazca_editor_controls.nzc_text_controls('init', _element_id );
+		}
+		
+	}
+	
+	
+	
+	/**
+	 * Desc
+	 * @param {int} Workspace ID 
+	 * @return {null} rendering result
+	 * @private
+	 */
+	function _set_align_controls( _space_id ) {
+
+		var _space		= _nazca_spaces[_space_id];
+		
+		var _element_id = _space.active_element_id;
+		var _element	= _getElementData( _space_id, _element_id ) ;
+		
+		var _height_increment = 50;
+		
+		$.each(_space.$nazca_align_controls.find('.vertical'), function(i,v) {
+												
+			var $a = $(this);
+			var css = {
+				height:	_element['css']['height'] + _space.resize_wrap_border_width * 2 + _height_increment,
+				top:	_element['css']['top'] - _height_increment / 2,
+				left:	_element['css']['left'],
+			};
+			
+			if($a.hasClass('na-vc')) {
+				css.left = css.left + _element['css']['width'] / 2;
+			} else if($a.hasClass('na-vr')) {
+				css.left = css.left + _element['css']['width'];
+			}
+			
+			$a.css(css).addClass('on');
+		});
+		
+	}
 	
 	
 	/**
@@ -1173,5 +1454,13 @@ function nzc_escapeHtml(html) {
 		
 	}
 	
+	
+	
+	
+	function _isArray( o ) {
+		
+		return Object.prototype.toString.call( o ) === '[object Array]' ? true : false;
+		
+	}
 		
 }( jQuery ));

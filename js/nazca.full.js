@@ -13,6 +13,11 @@ var nzc_textAlign = {
 };
 
 
+var nzc_workspaceTypes = {
+		FACEBOOK:	{ id: 1, width: 800, height: 669, ratio: 1.19518716577540 }
+};
+
+
 function nzc_escapeHtml(html) {
 		
 	_times= function(string, number) {
@@ -40,14 +45,6 @@ function nzc_escapeHtml(html) {
 	
 	var methods	= {};
 	
-	
-	var workspace = {
-		
-		FACEBOOK:	{ width: 446, height: 374, ratio: 1.19518716577540 },
-		
-		//WIDE:		1.77777777777777 //16:9
-		
-	};
 	
 	var keyCode = {
 		BACKSPACE: 8,
@@ -77,7 +74,7 @@ function nzc_escapeHtml(html) {
 	
 	var _opts = {
 		
-		workspace: workspace.FACEBOOK,
+		workspace: nzc_workspaceTypes.FACEBOOK,
 		
 		ratio_lock: true,
 		
@@ -98,9 +95,9 @@ function nzc_escapeHtml(html) {
 
 	
 	
-	var _last_space_id	= 0;
-	var _nazca_spaces	= {};
-	
+	var _last_space_id		= 0;
+	var _nazca_spaces		= {};
+	var _nazca_spaces_count	= 0;
 	
 	// Plugin definition.
 	$.fn.nazca = function( method ) {
@@ -126,6 +123,8 @@ function nzc_escapeHtml(html) {
 		
 		var opts = $.extend( {}, _opts, userOpts );
 		
+		$('body').addClass('not-selectable');
+		
 		return this.each(function() {		
 			
 			var $_nazca = $(this);
@@ -138,18 +137,17 @@ function nzc_escapeHtml(html) {
 			$_nazca.addClass('nazca-workspace');
 			
 			
-			var _width	= $_nazca.width();
-			var _height	= $_nazca.height();
-			
+			var _width	= $_nazca.innerWidth();
+			var _height	= $_nazca.innerHeight();
+
 			var _ratio = _width / _height;
 			if( _opts.workspace.ratio < _ratio) {
 				_width	= _height * _opts.workspace.ratio;
+				$_nazca.innerWidth(_width);
 			} else {
 				_height	= _width * _opts.workspace.ratio;
+				$_nazca.innerHeight(_height);
 			}
-			
-			$_nazca.css({width:_width, height:_height});
-			
 			
 			
 		
@@ -161,6 +159,8 @@ function nzc_escapeHtml(html) {
 
 			
 			var _space_id = ++_last_space_id;
+			_nazca_spaces_count++;
+			
 			_nazca_spaces[_space_id] = {
 				
 				$nazca: $_nazca,
@@ -216,10 +216,10 @@ function nzc_escapeHtml(html) {
 				
 			}
 			
-			$(document).bind('mousedown dragstart touchstart', 
+			$(document).bind('mousedown.nazca dragstart.nazca touchstart.nazca', 
 							function(e) {
 											if(!_space['active_element_id']) {
-												return false;
+												return true;
 											}
 											
 											var $e = $(e.target);
@@ -235,9 +235,9 @@ function nzc_escapeHtml(html) {
 						);
 		
 			
-			$(document).bind('keydown', 
+			$(document).bind('keydown.nazca', 
 				function(e) {
-					
+
 					switch(e.which) {
 						
 						case keyCode.ESCAPE:
@@ -278,6 +278,8 @@ function nzc_escapeHtml(html) {
 	 */
 	methods.reset = function() {
 		
+		$(document).unbind('mousedown.nazca dragstart.nazca touchstart.nazca keydown.nazca');
+		
 		return this.each(function () {
 			
 			var $_nazca				= $(this);
@@ -289,7 +291,66 @@ function nzc_escapeHtml(html) {
 			
 			delete _nazca_spaces[parseInt($_nazca.attr('data-nazca-id'))];
 			
+			_nazca_spaces_count--;
+			if(!_nazca_spaces_count) {
+				$('body').removeClass('not-selectable');
+			}
+			
 		});
+		
+	}
+	
+	
+	
+	
+	
+	/**
+	 * Desc
+	 * @param {int} Workspace ID 
+	 * @return {null} rendering result
+	 * @private
+	 */
+	function _clear( $_nazca_elements ) {
+		
+		$_nazca_elements.empty();
+		
+	}
+	
+	
+	
+	
+	
+	/**
+	 * Sets calendar view mode 
+	 * @param {enum} CALENDAR_MODES 
+	 * @return {bool} rendering result
+	 * @public
+	 */
+	methods.exportJSON = function() {
+		
+		var _spaces_data = [];
+		
+		this.each(function () {
+			
+			var $_nazca				= $(this);
+			var _space_id			= $_nazca.attr('data-nazca-id');
+			var _space_data			= [];
+			
+			for(var i in _nazca_spaces[_space_id].elements) {
+				
+				//Copy object. So we can modify changes
+				var _element = $.extend( {} , _nazca_spaces[_space_id].elements[i]);
+				delete _element['css'];
+				
+				_space_data.push( _element );
+			
+			}
+			
+			_spaces_data.push({'type' : _nazca_spaces[_space_id].opts.workspace.id, 'data' : _space_data });
+			
+		});
+		
+		return _spaces_data;
 		
 	}
 	
@@ -314,6 +375,68 @@ function nzc_escapeHtml(html) {
 			}
 			
 			_addElements( _space_id, elements );
+			
+		});
+	}
+	
+	
+	
+	
+	/**
+	 * Sets calendar view mode 
+	 * @param {enum} CALENDAR_MODES 
+	 * @return {bool} rendering result
+	 * @public
+	 */
+	methods.addNewElement = function( element ) {
+		return this.each(function () {
+			
+			var $_nazca				= $(this);
+			var _space_id			= $_nazca.attr('data-nazca-id');
+			
+			if(!_space_id) {
+				return false;
+			}
+			
+			var _space		= _nazca_spaces[_space_id];
+			var scale_delta	= _space.scale_delta
+			
+			var _n_width	= Math.round($_nazca.width() / scale_delta);
+			var _n_height	= Math.round($_nazca.height() / scale_delta);
+			
+			
+			
+			element['x'] = 0; element['y'] = 0; 
+			
+			if(element.type == elementType.IMAGE) {
+				var _ratio = element['width']/element['height'];
+			
+				if((_n_width/_n_height) > _ratio) {
+					element['width']	= _n_width;
+					element['height']	= Math.round(element['width'] / _ratio );
+				} else {
+					element['height']	= _n_height;						
+					element['width']	= Math.round(element['height'] * _ratio);
+				}
+						
+				if(element['width'] > _n_width) {
+					element['x'] = Math.round((_n_width-element['width'])/2);
+				}
+				
+				if(element['height'] > _n_height) {
+					element['y'] = Math.round((_n_height-element['height'])/2);
+				}
+			} else if(element.type == elementType.TEXT) {
+			
+				element['x'] = Math.round((_n_width-element['width'])/2);
+				element['y'] = Math.round((_n_height-element['fontSize'])/2);
+				
+			}
+
+			var $element = _addElements( _space_id, element );
+			if($element) {
+				_onElementSelect( _space_id, $element )
+			}
 			
 		});
 	}
@@ -476,6 +599,8 @@ function nzc_escapeHtml(html) {
 			
 		}
 		
+		return elements.length === 1 ? $element : false;
+		
 	}	
 	
 	
@@ -545,7 +670,7 @@ function nzc_escapeHtml(html) {
 					
 					var align = _e['textAlign'] == 3 ? 'right' : ( _e['textAlign'] == 2 ? 'center' : 'left');
 					
-					_style = 'top:' + _t + 'px;left:' + _l + 'px;z-index:' + _e['id'] + ';width:' + _w + 'px;height:auto;font-family:' + _e['fontFamily'] +';font-size:' + _e['fontSize'] + 'px;line-height:' + Math.round( _e['fontSize'] * 1.2 ) + 'px;color:' + _e['color'] + ';text-align:' + align + ';';
+					_style = 'top:' + _t + 'px;left:' + _l + 'px;z-index:' + _e['id'] + ';width:' + _w + 'px;height:auto;font-family:' + _e['fontFamily'] +';font-size:' +  Math.round(_e['fontSize'] * scale_delta) + 'px;line-height:' + Math.round( _e['fontSize'] * 1.15  * scale_delta) + 'px;color:' + _e['color'] + ';text-align:' + align + ';';
 					
 					if($element) {
 						$element.attr('style', _style).html(nzc_escapeHtml(_e['desc']));
@@ -635,17 +760,77 @@ function nzc_escapeHtml(html) {
 	
 	
 	
+	
+	
 	/**
 	 * Desc
 	 * @param {int} Workspace ID 
 	 * @return {null} rendering result
 	 * @private
 	 */
-	function _clear( $_nazca_elements ) {
+	function _onElementSelect( _space_id, $element ) {
 		
-		$_nazca_elements.empty();
+		var _space = _nazca_spaces[_space_id];
+		
+		var resize_wrap_border_width	= _space.resize_wrap_border_width;
+		var editor_controls_height		= _space.editor_controls_height;
+  		
+		
+		var _element_id, _element;	
+		
+		_element_id					= $element.attr('data-id');
+		_space.active_element_id	= _element_id;
+		
+		_element					= _getElementData( _space_id, _element_id ) ;
+		
+		
+		//TODO: remove later.. now used by determination of text element eight
+		_element['css']['width']	= $element.width();
+		_element['css']['height']	= $element.height();
+		_element['css']['top']		= parseFloat($element.css('top'));
+		_element['css']['left']		= parseFloat($element.css('left'));
+
+
+		var	element_width_wb,
+			element_height_wb;
+			
+		element_width_wb	= _element['css']['width'] + resize_wrap_border_width * 2;
+		element_height_wb	= _element['css']['height'] + resize_wrap_border_width * 2;
+
+		
+		
+														
+		//Fit resize controls wrap to element size
+		//and set valid position
+		_space.$nazca_resize_wrap.css({
+			width:	element_width_wb,
+			height:	element_height_wb,
+			top:	_element['css']['top'] - resize_wrap_border_width,
+			left:	_element['css']['left'] - resize_wrap_border_width,
+			zIndex: _element['css']['zIndex']//parseInt($element.css('zIndex'))
+		});
+		
+		
+		
+		//Set and show valid controls
+		_init_editor_controls( _space_id );
+		
+		
+		
+		//Show resize controls
+		_space.$nazca_resize_wrap.show();
+		
+		
+		
+		//Init above element resize draggable
+		_init_resize_draggable ( _space_id );
+		
+		
+		//Init resize controls
+		_init_resize_controls ( _space_id , _element['type'] );
 		
 	}
+	
 	
 	
 	
@@ -664,66 +849,18 @@ function nzc_escapeHtml(html) {
 		var resize_wrap_border_width	= _space.resize_wrap_border_width;
 		var editor_controls_height		= _space.editor_controls_height;
   
-  		
-		var	element_width_wb,
-			element_height_wb;
-
+  				
+		var _element_id, _element;	
+		_element_id					= $element.attr('data-id');
+		_element					= _getElementData( _space_id, _element_id ) ;
 		
-		var _element_id, _element;									
-																		
+									
 		_attach_drag_events_handlers($element, { 
 										container: parent_container,
 										onDragStart: function() {
 											
-											
-											_element_id					= $element.attr('data-id');
-											_space.active_element_id	= _element_id;
-											
-											_element					= _getElementData( _space_id, _element_id ) ;
-											
-											
-											_element['css']['width']	= $element.width();
-											_element['css']['height']	= $element.height();
-											_element['css']['top']		= parseFloat($element.css('top'));
-											_element['css']['left']		= parseFloat($element.css('left'));
-		
-											element_width_wb	= _element['css']['width'] + resize_wrap_border_width * 2;
-											element_height_wb	= _element['css']['height'] + resize_wrap_border_width * 2;
-		
-											
-											
-																							
-											//Fit resize controls wrap to element size
-											//and set valid position
-											_space.$nazca_resize_wrap.css({
-												width:	element_width_wb,
-												height:	element_height_wb,
-												top:	_element['css']['top'] - resize_wrap_border_width,
-												left:	_element['css']['left'] - resize_wrap_border_width,
-												zIndex: _element['css']['zIndex']//parseInt($element.css('zIndex'))
-											});
-											
-											
-											
-											//Set and show valid controls
-											_init_editor_controls( _space_id );
-											
-											
-											
-											//Show resize controls
-											_space.$nazca_resize_wrap.show();
-											
-											
-											
-											//Init above element resize draggable
-  											_init_resize_draggable ( _space_id );
-											
-											
-											//Init resize controls
-  											_init_resize_controls ( _space_id , _element['type'] );
+											_onElementSelect( _space_id, $element );
 
-											
-											
 										},
 										onDrag: function( data ) {
 											
@@ -757,11 +894,10 @@ function nzc_escapeHtml(html) {
 											//Set align controls
 											_set_align_controls( _space_id );
 											
-											
-											
 										},
 										onDragEnd: function( data ) {
 											_space.$nazca_editor_controls.show();
+											_hide_align_controls( _space_id );
 										}
 								}
 							);
@@ -935,12 +1071,6 @@ function nzc_escapeHtml(html) {
 							new_width	= width * (_sqrt / startDistance);
 							new_height	= new_width / ratio;
 							
-							//if(data.position[0] > data.position[1]) {
-							//	new_height	= new_width / ratio;
-							//} else if( data.position[0] < data.position[1] ) {
-							//	new_width	= new_height * ratio;
-							//}
-							
 						}
 						
 						
@@ -1026,6 +1156,7 @@ function nzc_escapeHtml(html) {
 						for(var i in _element['css']) {
 							
 							k = (i == 'left' ? 'x' : (i == 'top' ? 'y' : i) );
+							//TODO zIndex in css
 							v = Math.round( _element['css'][i] / _space.scale_delta );
 							
 							attributes[k] = v;
@@ -1043,6 +1174,7 @@ function nzc_escapeHtml(html) {
 					},
 					onDragEnd: function() {
 						_space.$nazca_editor_controls.show();
+						_hide_align_controls( _space_id );
 					}
 				});
 				
@@ -1129,6 +1261,7 @@ function nzc_escapeHtml(html) {
 				
 				onDragEnd: function(data) {
 					_space.$nazca_editor_controls.show();
+					_hide_align_controls( _space_id );
 				}
 				
 			});
@@ -1170,6 +1303,10 @@ function nzc_escapeHtml(html) {
 			_space.$nazca_editor_controls.nzc_text_controls('init', _element_id );
 		}
 		
+		//TODO: Remove this hack, 
+		//If parent relative element have fixed width and we are to close to parents right border, elements in nazca_editor_controls panel can be breaked to fit remained space
+		_space.$nazca_editor_controls.css({'position':'absolute', 'width':_space.$nazca_editor_controls.css({'position':'fixed', 'width':'auto'}).outerWidth()});
+		
 	}
 	
 	
@@ -1208,6 +1345,28 @@ function nzc_escapeHtml(html) {
 		});
 		
 	}
+	
+	
+	
+	
+	
+	/**
+	 * Desc
+	 * @param {int} Workspace ID 
+	 * @return {null} rendering result
+	 * @private
+	 */
+	function _hide_align_controls( _space_id ) {
+		
+		var _space		= _nazca_spaces[_space_id];
+
+		_space.$nazca_align_controls.find('.on').removeClass('on');
+		
+	}
+	
+	
+	
+	
 	
 	
 	/**

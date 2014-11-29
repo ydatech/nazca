@@ -48,7 +48,12 @@
 			
 			var _html;
 			_html	= '<ul class="nav nav-nzc-controls">'
-						+'<li><a class="nzc-i-delete"><i class="fa fa-trash"></i></a></li>'
+						+'<li><a class="nzc-control" data-type="delete"><i class="fa fa-trash"></i></a></li>'
+						+'<li><a class="dropdown-toggle" data-toggle="dropdown"><i class="fa fa-caret-down"></i></a>'
+						+'<ul class="dropdown-menu" role="menu">'
+							+'<li><a class="nzc-control" data-type="move" data-value="forward">Move forward</a></li>'
+							+'<li><a class="nzc-control" data-type="move" data-value="back">Move back</a></li>'
+						+'</ul></li>'
 					+'</ul>';
 			
 			$_controls.html(_html);
@@ -88,10 +93,52 @@
 	
 	function _attachEventHandlers( $_controls ) {
 		
-		var workspace_element_id = $_controls.attr( 'data-element-id' );
+		var workspace_element_id	= $_controls.attr( 'data-element-id' );
+		var $_space					= $_controls.parents('.nazca-workspace');
+				
 		
-		$_controls.find('.nzc-i-delete').click(function(e) {
-			$_controls.parents('.nazca-workspace').nazca('removeElement', workspace_element_id );
+		$_controls.find('.nzc-control').click(function(e) {
+			
+			var $e = $(this);
+			
+			var _type	= $e.attr('data-type');
+			var _value	= $e.attr('data-value');
+			
+			switch(_type) {
+				
+				
+				case 'delete':
+				
+					$_space.nazca('removeElement', workspace_element_id );
+					
+				break;
+				
+				
+				case 'move':
+				
+					switch( _value ) {
+						
+						case 'forward':
+							$_space.nazca('moveElement', workspace_element_id, 'forward' );
+						break;
+						
+						case 'back':
+							$_space.nazca('moveElement', workspace_element_id, 'back' );
+						break;
+						
+						default:
+						break;
+						
+					}
+					
+				break;
+				
+				
+				default:
+				break;
+				
+			}
+			
 		});
 
 	}

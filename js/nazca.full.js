@@ -5,6 +5,12 @@
  * Copyright (c) 2014-2015 Mikhail Baranovsky
  */
  
+
+window.nzc_fonts = window.nzc_fonts ? window.nzc_fonts : [
+	['Arial', '', true],
+	['Georgia', '', true],
+	['Times New Roman', '', true]
+];
  
 var nzc_textAlign = {
 					LEFT:	1,
@@ -38,6 +44,44 @@ function nzc_escapeHtml(html) {
 }
 
 
+function nzc_loadFontStylesheet( font ) {
+	
+	var arrayOffset = null;
+	if( typeof(font) === 'string' ) {
+		for(var i in nzc_fonts) {
+			if(nzc_fonts[i][0] === font) {
+				arrayOffset = i;
+				break;
+			}
+		}
+	} else {
+		arrayOffset = font;
+	}
+	
+	if(arrayOffset === null) {
+		return false;
+	}
+	
+	var _stylesheetLink		= nzc_fonts[arrayOffset][1];
+	var _stylesheetLoaded	= nzc_fonts[arrayOffset][2];
+			
+	if(!_stylesheetLoaded && _stylesheetLink) {
+		var _stylesheet = document.createElement("link")
+			_stylesheet.setAttribute("rel", "stylesheet")
+			_stylesheet.setAttribute("type", "text/css")
+			_stylesheet.setAttribute("href", _stylesheetLink)
+				
+			document.getElementsByTagName("head")[0].appendChild(_stylesheet)
+				
+			//Mark that font is loaded
+			nzc_fonts[arrayOffset][2] = true;
+			
+	}
+	
+	return true;
+}
+
+
 //Nazca Workspace
 (function( $ ) {
 	
@@ -62,7 +106,8 @@ function nzc_escapeHtml(html) {
 		RIGHT: 39,
 		SPACE: 32,
 		TAB: 9,
-		UP: 38
+		UP: 38,
+		CTRL: 17
 	};
 	
 	var elementType = {
@@ -239,7 +284,7 @@ function nzc_escapeHtml(html) {
 				function(e) {
 
 					switch(e.which) {
-						
+												
 						case keyCode.ESCAPE:
 							_hideResize();
 						break;
@@ -547,6 +592,32 @@ function nzc_escapeHtml(html) {
 	
 	
 	/**
+	 * Sets calendar view mode 
+	 * @param {enum} CALENDAR_MODES 
+	 * @return {bool} rendering result
+	 * @public
+	 */
+	methods.moveElement = function( element_id, direction ) {
+		
+		return this.each(function () {
+			
+			var $_nazca				= $(this);
+			var _space_id			= $_nazca.attr('data-nazca-id');
+			
+			if(!_space_id) {
+				return false;
+			}
+			
+			_moveElement( _space_id, element_id, direction );
+			
+		});
+		
+	}
+	
+	
+	
+	
+	/**
 	 * Desc
 	 * @param {int} Workspace ID 
 	 * @return {null} rendering result
@@ -617,7 +688,7 @@ function nzc_escapeHtml(html) {
 		var _space = _nazca_spaces[_space_id];
 		
 		var scale_delta = _space.scale_delta;
-		var i, _e, _w, _h, _t, _l, _style;
+		var i, _e, _w, _h, _t, _l, _style, zIndex;
 		
 		
 		
@@ -637,15 +708,20 @@ function nzc_escapeHtml(html) {
 			_e	= element;
 			
 			if(!_e['id']) {
-				_e['id'] = ++_space.element_last_id;
-				_space.elements.push(_e);
+				
+				_e['id']	= ++_space.element_last_id;
+				zIndex		= _space.elements.push(_e);
+				
 			} else {
-				$element = _space.$nazca_elements.find('.element[data-id="' + _e['id'] + '"]');
+				
+				$element	= _space.$nazca_elements.find('.element[data-id="' + _e['id'] + '"]');
+				zIndex		= _e['css']['zIndex'];
+				
 			}
 
 			//Scale
-			_e['css'] = {};
-			_e['css']['zIndex']	= _e['id'];
+			_e['css']			= {};
+			_e['css']['zIndex']	= zIndex;
 			_e['css']['width']	= _w	= Math.round(_e['width'] * scale_delta);
 			_e['css']['height']	= _h	= Math.round(_e['height'] * scale_delta);
 			_e['css']['left']	= _l	= Math.round(_e['x'] * scale_delta);
@@ -656,7 +732,7 @@ function nzc_escapeHtml(html) {
 						
 				case elementType.IMAGE:
 				
-					_style = 'top:' + _t + 'px;left:' + _l + 'px;z-index:' + _e['id'] + ';width:' + _w + 'px;height:' + _h + 'px;';
+					_style = 'top:' + _t + 'px;left:' + _l + 'px;z-index:' + zIndex + ';width:' + _w + 'px;height:' + _h + 'px;';
 					
 					if($element) {
 						$element.attr('style', _style);
@@ -668,9 +744,11 @@ function nzc_escapeHtml(html) {
 				
 				case elementType.TEXT:
 					
+					nzc_loadFontStylesheet( _e['fontFamily'] );
+					
 					var align = _e['textAlign'] == 3 ? 'right' : ( _e['textAlign'] == 2 ? 'center' : 'left');
 					
-					_style = 'top:' + _t + 'px;left:' + _l + 'px;z-index:' + _e['id'] + ';width:' + _w + 'px;height:auto;font-family:' + _e['fontFamily'] +';font-size:' +  Math.round(_e['fontSize'] * scale_delta) + 'px;line-height:' + Math.round( _e['fontSize'] * 1.15  * scale_delta) + 'px;color:' + _e['color'] + ';text-align:' + align + ';';
+					_style = 'top:' + _t + 'px;left:' + _l + 'px;z-index:' + zIndex + ';width:' + _w + 'px;height:auto;font-family:' + _e['fontFamily'] +';font-size:' +  Math.round(_e['fontSize'] * scale_delta) + 'px;line-height:' + Math.round( _e['fontSize'] * 1.15  * scale_delta) + 'px;color:' + _e['color'] + ';text-align:' + align + ';';
 					
 					if($element) {
 						$element.attr('style', _style).html(nzc_escapeHtml(_e['desc']));
@@ -710,7 +788,7 @@ function nzc_escapeHtml(html) {
 			if(_space.elements[i]['id'] == element_id) {
 				
 				if(key !== null && typeof key === 'object') {
-					$.extend( _space.elements[i], key);
+					$.extend( true, _space.elements[i], key);
 				} else {
 					_space.elements[i][key] = value;
 				}
@@ -761,6 +839,146 @@ function nzc_escapeHtml(html) {
 	
 	
 	
+	/**
+	 * Desc
+	 * @param {int} Workspace ID 
+	 * @return {null} rendering result
+	 * @private
+	 */
+	function _moveElement( _space_id, element_id, direction ) {
+		
+		var _space	= _nazca_spaces[_space_id];
+		var _status	= false; var _new_index;
+		
+		
+		var i = _getElementIndex( _space_id, element_id );
+		
+		if(i !== false) {
+			
+			_new_index = _nearestIntersect( _space_id, i, direction );
+			
+			if(_new_index !== false) {
+				
+				_arrayMove(_space.elements, i, _new_index);
+				_zIndexReset( _space_id );
+				
+				return true;
+			}
+				
+		}
+
+		
+		return _status;
+	}
+	
+	
+	
+	/**
+	 * Desc
+	 * @param {int} Workspace ID 
+	 * @return {null} rendering result
+	 * @private
+	 */
+	function _nearestIntersect( _space_id, elementIndex, direction ) {
+		
+		var _space	= _nazca_spaces[_space_id];
+		var _status	= false; var _new_index;
+		
+		var _length = _space.elements.length;
+		
+		var _start, _end, _e2;
+		
+		
+		var _e1 = _space.elements[elementIndex];
+		if(_e1.type == elementType.TEXT) {
+			//TODO: something better?
+			_e1['height'] = Math.round(_space.$nazca_elements.find('.element[data-id="' + _e1['id'] + '"]').height() / _space.scale_delta );
+		}
+		
+		
+		if(direction == 'back' && elementIndex > 0) {
+			_start	= elementIndex-1;
+			_end	= 0;
+		}
+		else if(direction == 'forward' && elementIndex < _length - 1) {	
+			_start	= elementIndex+1;
+			_end	= _length - 1;
+		}
+
+	
+		for(var i = _start; (direction == 'back' ? i >= _end : i <= _end); (direction == 'back' ? i-- : i++)) {
+			
+			_e2 = _space.elements[i];
+			
+			if(_intersect(_e1, _e2)) {
+				return i;
+			}
+			
+		}
+		
+		return false;
+	
+	}
+	
+	
+	
+	/**
+	 * Desc
+	 * @param {int} Workspace ID 
+	 * @return {null} rendering result
+	 * @private
+	 */
+	function _getElementIndex( _space_id, element_id ) {
+		
+		var _space = _nazca_spaces[_space_id];
+		var _arrayOffset; var _status = false; var _new_index;
+
+		for(var i in _space.elements) {
+			
+			i = parseInt(i);
+			
+			if(_space.elements[i]['id'] == element_id) {
+				return i
+			}
+			
+		}
+		
+		return false;
+		
+	}
+	
+	
+	
+	/**
+	 * Desc
+	 * @param {int} Workspace ID 
+	 * @return {null} rendering result
+	 * @private
+	 */
+	function _zIndexReset( _space_id ) {
+		
+		var _space	= _nazca_spaces[_space_id];
+		
+		var _e;
+		for(var i in _space.elements) {
+			
+			i = parseInt(i);
+			
+			_e1 = _space.elements[i];
+			_e1['css']['zIndex']	= i + 1;
+			_space.$nazca_elements.find('.element[data-id="' + _e1['id'] + '"]').css({'zIndex': _e1['css']['zIndex']});
+
+			if(_space.active_element_id == _e1['id']) {
+					_space.$nazca_resize_wrap.css({'zIndex': _e1['css']['zIndex']});
+			}
+			
+		}
+		
+	}
+	
+	
+	
+	
 	
 	/**
 	 * Desc
@@ -784,12 +1002,12 @@ function nzc_escapeHtml(html) {
 		_element					= _getElementData( _space_id, _element_id ) ;
 		
 		
-		//TODO: remove later.. now used by determination of text element eight
-		_element['css']['width']	= $element.width();
+		//TODO: remove later.. now used by determination of text element height
+		/*_element['css']['width']	= $element.width();
 		_element['css']['height']	= $element.height();
 		_element['css']['top']		= parseFloat($element.css('top'));
-		_element['css']['left']		= parseFloat($element.css('left'));
-
+		_element['css']['left']		= parseFloat($element.css('left'));*/
+		
 
 		var	element_width_wb,
 			element_height_wb;
@@ -807,7 +1025,7 @@ function nzc_escapeHtml(html) {
 			height:	element_height_wb,
 			top:	_element['css']['top'] - resize_wrap_border_width,
 			left:	_element['css']['left'] - resize_wrap_border_width,
-			zIndex: _element['css']['zIndex']//parseInt($element.css('zIndex'))
+			zIndex: _element['css']['zIndex']
 		});
 		
 		
@@ -1615,12 +1833,47 @@ function nzc_escapeHtml(html) {
 	
 	
 	
+	function _intersect( e1, e2 ) {
+		
+		//First rectangle
+		var e1_x1 = e1.x;
+		var e1_y1 = e1.y;
+		
+		var e1_x2 = e1.x + e1.width;
+		var e1_y2 = e1.y + e1.height;
+		
+		
+		//Second rectangle
+		var e2_x1 = e2.x;
+		var e2_y1 = e2.y;
+		
+		var e2_x2 = e2.x + e2.width;
+		var e2_y2 = e2.y + e2.height;
+		
+		
+		return !(e2_x1 > e1_x2 || e2_x2 < e1_x1 || e2_y1 > e1_y2 || e2_y2 < e1_y1);
+		
+	}
+	
 	
 	function _isArray( o ) {
 		
 		return Object.prototype.toString.call( o ) === '[object Array]' ? true : false;
 		
 	}
+	
+	
+	function _arrayMove(array, old_index, new_index) {
+		
+		if (new_index >= array.length) {
+			var k = new_index - array.length;
+			while ((k--) + 1) {
+				array.push(undefined);
+			}
+		}
+		return array.splice(new_index, 0, array.splice(old_index, 1)[0]);
+		
+	};
 		
 }( jQuery ));/**
  * Nazca Editor v0.1.0
@@ -1672,7 +1925,12 @@ function nzc_escapeHtml(html) {
 			
 			var _html;
 			_html	= '<ul class="nav nav-nzc-controls">'
-						+'<li><a class="nzc-i-delete"><i class="fa fa-trash"></i></a></li>'
+						+'<li><a class="nzc-control" data-type="delete"><i class="fa fa-trash"></i></a></li>'
+						+'<li><a class="dropdown-toggle" data-toggle="dropdown"><i class="fa fa-caret-down"></i></a>'
+						+'<ul class="dropdown-menu" role="menu">'
+							+'<li><a class="nzc-control" data-type="move" data-value="forward">Move forward</a></li>'
+							+'<li><a class="nzc-control" data-type="move" data-value="back">Move back</a></li>'
+						+'</ul></li>'
 					+'</ul>';
 			
 			$_controls.html(_html);
@@ -1712,10 +1970,52 @@ function nzc_escapeHtml(html) {
 	
 	function _attachEventHandlers( $_controls ) {
 		
-		var workspace_element_id = $_controls.attr( 'data-element-id' );
+		var workspace_element_id	= $_controls.attr( 'data-element-id' );
+		var $_space					= $_controls.parents('.nazca-workspace');
+				
 		
-		$_controls.find('.nzc-i-delete').click(function(e) {
-			$_controls.parents('.nazca-workspace').nazca('removeElement', workspace_element_id );
+		$_controls.find('.nzc-control').click(function(e) {
+			
+			var $e = $(this);
+			
+			var _type	= $e.attr('data-type');
+			var _value	= $e.attr('data-value');
+			
+			switch(_type) {
+				
+				
+				case 'delete':
+				
+					$_space.nazca('removeElement', workspace_element_id );
+					
+				break;
+				
+				
+				case 'move':
+				
+					switch( _value ) {
+						
+						case 'forward':
+							$_space.nazca('moveElement', workspace_element_id, 'forward' );
+						break;
+						
+						case 'back':
+							$_space.nazca('moveElement', workspace_element_id, 'back' );
+						break;
+						
+						default:
+						break;
+						
+					}
+					
+				break;
+				
+				
+				default:
+				break;
+				
+			}
+			
 		});
 
 	}
@@ -1820,6 +2120,11 @@ function nzc_escapeHtml(html) {
 		$('.nzc_shadow[data-id="' + $_textarea.attr('id') + '"]').remove();
 		
 		
+		
+		//setElementAttr for the last time, maybe someone used spell check and no event fired
+		$_space.nazca('setElementAttr', element_id, { desc: $_textarea.val() } );
+		$_element.html( nzc_escapeHtml($_textarea.val()) );
+			
 		
 		//Back draggable to normal
 		$_draggable
@@ -1944,7 +2249,12 @@ function nzc_escapeHtml(html) {
 			$_nazca_resize_wrap.height( new_height );
 			
 		}
-
+		
+		
+		//Make initial update
+		_update(null);
+		
+		
 		$_textarea
 					.keydown({event:'keydown'}, _update)
 					.bind('change keyup', function(event) {
@@ -1958,9 +2268,6 @@ function nzc_escapeHtml(html) {
 		$_element.bind('nzc_resize.nzc_textarea',function(event, data) {
 			_update();
 		});
-		
-		
-		_update(null);
 		
 		
 		//If element was updated from outside, update styles, etc.
@@ -1981,6 +2288,11 @@ function nzc_escapeHtml(html) {
  * Copyright (c) 2014-2015 Mikhail Baranovsky
  */
  
+ 
+var nzc_font_sizes	= [12, 14, 16, 18, 21, 24, 28, 32, 36, 42, 48, 56, 64, 72, 80, 88, 96, 104, 120, 144];
+var nzc_font_colors	= ['#000000', '#ffffff', '#1e84ab', '#f1c40f', '#009900', '#cc0000'];
+
+  
 (function( $ ) {
 	
 	var version = "0.1.0";
@@ -2023,26 +2335,47 @@ function nzc_escapeHtml(html) {
 			
 			var _html;
 			_html	= '<ul class="nav nav-nzc-controls">'
-						+'<li class="dropdown"><a class="nzc-t-font" class="dropdown-toggle" data-toggle="dropdown"><i class="fa fa-font"></i> Font <span class="caret"></span></a>'
-							+'<ul class="nzc-t-font-dropdown dropdown-menu" role="menu">'
-								+'<li><a data-font="Arial">Arial</a></li>'
-								+'<li><a data-font="Comic Sans MS">Comic Sans MS</a></li>'
-								+'<li><a data-font="Georgia">Georgia</a></li>'
-								+'<li><a data-font="Monotype Corsiva">Monotype Corsiva</a></li>'
-								+'<li><a data-font="PT Sans">PT Sans</a></li>'
-								+'<li><a data-font="Times New Roman">Times New Roman</a></li>'
-							+ '</ul></li>'
-						+'<li><a class="nzc-t-align" data-value="left"><i class="fa fa-align-left"></i></a></li>'
-						+'<li><a class="nzc-t-align" data-value="center"><i class="fa fa-align-center"></i></a></li>'
-						+'<li><a class="nzc-t-align" data-value="right"><i class="fa fa-align-right"></i></a></li>'
-						+'<li class="dropdown"><a class="nzc-t-color" class="dropdown-toggle" data-toggle="dropdown"><i class="fa fa-adjust"></i> Color <span class="caret"></span></a>'
-							+'<ul class="nzc-t-color-dropdown dropdown-menu" role="menu">'
-								+'<li><a data-color="#000000">Black</a></li>'
-								+'<li><a data-color="#1e84ab">Blue</a></li>'
-								+'<li><a data-color="#f1c40f">Orange</a></li>'
-								+'<li><a data-color="#ffffff">White</a></li>'
-							+ '</ul></li>'
-						+'<li><a class="nzc-t-delete"><i class="fa fa-trash"></i></a></li>'
+						+'<li class="dropdown"><a class="dropdown-toggle" data-toggle="dropdown"><i class="fa fa-font"></i> Font <span class="caret"></span></a>'
+							+'<ul class="nzc-t-font-dropdown dropdown-menu" role="menu">';
+				
+				for(var i in nzc_fonts) {
+					
+					_html += '<li><a class="nzc-control" data-type="font" data-value="' + i + '">' + nzc_fonts[i][0] + '</a></li>';
+					
+				}
+							
+								
+			_html			+='</ul></li>'
+						+'<li class="dropdown"><a class="dropdown-toggle" data-toggle="dropdown"><i class="fa fa-text-height"></i> <span class="caret"></span></a>'
+							+'<ul class="nzc-t-fsize-dropdown dropdown-menu" role="menu">';
+				
+				for(var i in nzc_font_sizes) {
+					
+					_html += '<li><a class="nzc-control" data-type="font_size" data-value="' + nzc_font_sizes[i] + '">' + nzc_font_sizes[i] + 'px</a></li>';
+					
+				}
+				
+			_html			+='</ul></li>'
+						+'<li class="dropdown"><a class="dropdown-toggle" data-toggle="dropdown"><i class="fa fa-adjust"></i> Color <span class="caret"></span></a>'
+							+'<ul class="nzc-t-color-dropdown dropdown-menu" role="menu">';
+				
+				for(var i in nzc_font_colors) {
+					
+					_html += '<li><a class="nzc-control" data-type="color" data-value="' + nzc_font_colors[i] + '"><i style="display:block; width:25px; height:25px; background-color:' + nzc_font_colors[i] + '; border-radius:50%; box-shadow: inset 2px 2px 1px rgba(0,0,0,.15),inset -1px -1px 0 rgba(255,255,255,.25);"></i></a></li>';
+					
+				}
+			
+			_html			+='</ul></li>'
+						+'<li><a class="nzc-control" data-type="delete"><i class="fa fa-trash"></i></a></li>'
+						+'<li><a class="dropdown-toggle" data-toggle="dropdown"><i class="fa fa-caret-down"></i></a>'
+						+'<ul class="dropdown-menu" role="menu">'
+							+'<li><a class="nzc-control" data-type="align" data-value="left"><i class="fa fa-align-left"> Left</i></a></li>'
+							+'<li><a class="nzc-control" data-type="align" data-value="center"><i class="fa fa-align-center"></i> Center</a></li>'
+							+'<li><a class="nzc-control" data-type="align" data-value="right"><i class="fa fa-align-right"></i> Right</a></li>'
+							+'<li class="divider"></li>'
+							+'<li><a class="nzc-control" data-type="move" data-value="forward">Move forward</a></li>'
+							+'<li><a class="nzc-control" data-type="move" data-value="back">Move back</a></li>'
+						+'</ul></li>'		
 					+'</ul>';
 			
 			$_controls.html(_html);
@@ -2082,50 +2415,103 @@ function nzc_escapeHtml(html) {
 	
 	function _attachEventHandlers( $_controls ) {
 		
-		var workspace_element_id = $_controls.attr( 'data-element-id' );
+		var workspace_element_id	= $_controls.attr( 'data-element-id' );
+		var $_space					= $_controls.parents('.nazca-workspace');
+				
 		
-		$_controls.find('.nzc-t-delete').click(function(e) {
-			$_controls.parents('.nazca-workspace').nazca('removeElement', workspace_element_id );
-		});
-		
-		$_controls.find('.nzc-t-align').click(function(e) {
+		$_controls.find('.nzc-control').click(function(e) {
 			
-			var ta;
-			switch($(this).attr('data-value')) {
+			var $e = $(this);
+			
+			var _type	= $e.attr('data-type');
+			var _value	= $e.attr('data-value');
+			
+			switch(_type) {
 				
-				case 'left':
-					ta = nzc_textAlign.LEFT;
+				case 'font':
+					
+					var arrayOffset = parseInt(_value);
+					nzc_loadFontStylesheet( arrayOffset );
+					$_space.nazca('setElementAttr', workspace_element_id, { fontFamily: nzc_fonts[arrayOffset][0] } ).nazca('redrawElement', workspace_element_id);
+					
 				break;
 				
-				case 'center':
-					ta = nzc_textAlign.CENTER;
+				case 'font_size':
+					
+					$_space.nazca('setElementAttr', workspace_element_id, { fontSize: _value } ).nazca('redrawElement', workspace_element_id);
+					
 				break;
 				
-				case 'right':
-					ta = nzc_textAlign.RIGHT;
+				case 'color':
+					
+					$_space.nazca('setElementAttr', workspace_element_id, { color: _value } ).nazca('redrawElement', workspace_element_id);
+					
 				break;
+				
+				
+				case 'align':
+					
+					var ta;
+					switch( _value ) {
+						
+						case 'left':
+							ta = nzc_textAlign.LEFT;
+						break;
+						
+						case 'center':
+							ta = nzc_textAlign.CENTER;
+						break;
+						
+						case 'right':
+							ta = nzc_textAlign.RIGHT;
+						break;
+						
+						default:
+						break;
+						
+					}
+					
+					$_space.nazca('setElementAttr', workspace_element_id, { textAlign: ta } ).nazca('redrawElement', workspace_element_id);
+					
+				break;
+				
+				
+				case 'delete':
+				
+					$_space.nazca('removeElement', workspace_element_id );
+					
+				break;
+				
+				
+				case 'move':
+				
+					switch( _value ) {
+						
+						case 'forward':
+							$_space.nazca('moveElement', workspace_element_id, 'forward' );
+						break;
+						
+						case 'back':
+							$_space.nazca('moveElement', workspace_element_id, 'back' );
+						break;
+						
+						default:
+						break;
+						
+					}
+					
+				break;
+				
 				
 				default:
 				break;
 				
 			}
 			
-			$_controls.parents('.nazca-workspace').nazca('setElementAttr', workspace_element_id, { textAlign: ta } ).nazca('redrawElement', workspace_element_id);
-			
 		});
 		
-		$_controls.find('.nzc-t-font-dropdown>li>a').click(function(e) {
-			
-			$_controls.parents('.nazca-workspace').nazca('setElementAttr', workspace_element_id, { fontFamily: $(this).attr('data-font') } ).nazca('redrawElement', workspace_element_id);
-			
-		});
+
 		
-		$_controls.find('.nzc-t-color-dropdown>li>a').click(function(e) {
-			
-			$_controls.parents('.nazca-workspace').nazca('setElementAttr', workspace_element_id, { color: $(this).attr('data-color') } ).nazca('redrawElement', workspace_element_id);
-			
-		});
-	
 	}
 	
 }( jQuery ));

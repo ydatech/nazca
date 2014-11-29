@@ -99,6 +99,11 @@
 		
 		
 		
+		//setElementAttr for the last time, maybe someone used spell check and no event fired
+		$_space.nazca('setElementAttr', element_id, { desc: $_textarea.val() } );
+		$_element.html( nzc_escapeHtml($_textarea.val()) );
+			
+		
 		//Back draggable to normal
 		$_draggable
 					.removeAttr( 'data-element-id' )
@@ -222,7 +227,12 @@
 			$_nazca_resize_wrap.height( new_height );
 			
 		}
-
+		
+		
+		//Make initial update
+		_update(null);
+		
+		
 		$_textarea
 					.keydown({event:'keydown'}, _update)
 					.bind('change keyup', function(event) {
@@ -236,9 +246,6 @@
 		$_element.bind('nzc_resize.nzc_textarea',function(event, data) {
 			_update();
 		});
-		
-		
-		_update(null);
 		
 		
 		//If element was updated from outside, update styles, etc.

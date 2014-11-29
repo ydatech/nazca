@@ -6,6 +6,11 @@
  * Copyright (c) 2014-2015 Mikhail Baranovsky
  */
  
+ 
+var nzc_font_sizes	= [12, 14, 16, 18, 21, 24, 28, 32, 36, 42, 48, 56, 64, 72, 80, 88, 96, 104, 120, 144];
+var nzc_font_colors	= ['#000000', '#ffffff', '#1e84ab', '#f1c40f', '#009900', '#cc0000'];
+
+  
 (function( $ ) {
 	
 	var version = "0.1.0";
@@ -48,26 +53,47 @@
 			
 			var _html;
 			_html	= '<ul class="nav nav-nzc-controls">'
-						+'<li class="dropdown"><a class="nzc-t-font" class="dropdown-toggle" data-toggle="dropdown"><i class="fa fa-font"></i> Font <span class="caret"></span></a>'
-							+'<ul class="nzc-t-font-dropdown dropdown-menu" role="menu">'
-								+'<li><a data-font="Arial">Arial</a></li>'
-								+'<li><a data-font="Comic Sans MS">Comic Sans MS</a></li>'
-								+'<li><a data-font="Georgia">Georgia</a></li>'
-								+'<li><a data-font="Monotype Corsiva">Monotype Corsiva</a></li>'
-								+'<li><a data-font="PT Sans">PT Sans</a></li>'
-								+'<li><a data-font="Times New Roman">Times New Roman</a></li>'
-							+ '</ul></li>'
-						+'<li><a class="nzc-t-align" data-value="left"><i class="fa fa-align-left"></i></a></li>'
-						+'<li><a class="nzc-t-align" data-value="center"><i class="fa fa-align-center"></i></a></li>'
-						+'<li><a class="nzc-t-align" data-value="right"><i class="fa fa-align-right"></i></a></li>'
-						+'<li class="dropdown"><a class="nzc-t-color" class="dropdown-toggle" data-toggle="dropdown"><i class="fa fa-adjust"></i> Color <span class="caret"></span></a>'
-							+'<ul class="nzc-t-color-dropdown dropdown-menu" role="menu">'
-								+'<li><a data-color="#000000">Black</a></li>'
-								+'<li><a data-color="#1e84ab">Blue</a></li>'
-								+'<li><a data-color="#f1c40f">Orange</a></li>'
-								+'<li><a data-color="#ffffff">White</a></li>'
-							+ '</ul></li>'
-						+'<li><a class="nzc-t-delete"><i class="fa fa-trash"></i></a></li>'
+						+'<li class="dropdown"><a class="dropdown-toggle" data-toggle="dropdown"><i class="fa fa-font"></i> Font <span class="caret"></span></a>'
+							+'<ul class="nzc-t-font-dropdown dropdown-menu" role="menu">';
+				
+				for(var i in nzc_fonts) {
+					
+					_html += '<li><a class="nzc-control" data-type="font" data-value="' + i + '">' + nzc_fonts[i][0] + '</a></li>';
+					
+				}
+							
+								
+			_html			+='</ul></li>'
+						+'<li class="dropdown"><a class="dropdown-toggle" data-toggle="dropdown"><i class="fa fa-text-height"></i> <span class="caret"></span></a>'
+							+'<ul class="nzc-t-fsize-dropdown dropdown-menu" role="menu">';
+				
+				for(var i in nzc_font_sizes) {
+					
+					_html += '<li><a class="nzc-control" data-type="font_size" data-value="' + nzc_font_sizes[i] + '">' + nzc_font_sizes[i] + 'px</a></li>';
+					
+				}
+				
+			_html			+='</ul></li>'
+						+'<li class="dropdown"><a class="dropdown-toggle" data-toggle="dropdown"><i class="fa fa-adjust"></i> Color <span class="caret"></span></a>'
+							+'<ul class="nzc-t-color-dropdown dropdown-menu" role="menu">';
+				
+				for(var i in nzc_font_colors) {
+					
+					_html += '<li><a class="nzc-control" data-type="color" data-value="' + nzc_font_colors[i] + '"><i style="display:block; width:25px; height:25px; background-color:' + nzc_font_colors[i] + '; border-radius:50%; box-shadow: inset 2px 2px 1px rgba(0,0,0,.15),inset -1px -1px 0 rgba(255,255,255,.25);"></i></a></li>';
+					
+				}
+			
+			_html			+='</ul></li>'
+						+'<li><a class="nzc-control" data-type="delete"><i class="fa fa-trash"></i></a></li>'
+						+'<li><a class="dropdown-toggle" data-toggle="dropdown"><i class="fa fa-caret-down"></i></a>'
+						+'<ul class="dropdown-menu" role="menu">'
+							+'<li><a class="nzc-control" data-type="align" data-value="left"><i class="fa fa-align-left"> Left</i></a></li>'
+							+'<li><a class="nzc-control" data-type="align" data-value="center"><i class="fa fa-align-center"></i> Center</a></li>'
+							+'<li><a class="nzc-control" data-type="align" data-value="right"><i class="fa fa-align-right"></i> Right</a></li>'
+							+'<li class="divider"></li>'
+							+'<li><a class="nzc-control" data-type="move" data-value="forward">Move forward</a></li>'
+							+'<li><a class="nzc-control" data-type="move" data-value="back">Move back</a></li>'
+						+'</ul></li>'		
 					+'</ul>';
 			
 			$_controls.html(_html);
@@ -107,50 +133,103 @@
 	
 	function _attachEventHandlers( $_controls ) {
 		
-		var workspace_element_id = $_controls.attr( 'data-element-id' );
+		var workspace_element_id	= $_controls.attr( 'data-element-id' );
+		var $_space					= $_controls.parents('.nazca-workspace');
+				
 		
-		$_controls.find('.nzc-t-delete').click(function(e) {
-			$_controls.parents('.nazca-workspace').nazca('removeElement', workspace_element_id );
-		});
-		
-		$_controls.find('.nzc-t-align').click(function(e) {
+		$_controls.find('.nzc-control').click(function(e) {
 			
-			var ta;
-			switch($(this).attr('data-value')) {
+			var $e = $(this);
+			
+			var _type	= $e.attr('data-type');
+			var _value	= $e.attr('data-value');
+			
+			switch(_type) {
 				
-				case 'left':
-					ta = nzc_textAlign.LEFT;
+				case 'font':
+					
+					var arrayOffset = parseInt(_value);
+					nzc_loadFontStylesheet( arrayOffset );
+					$_space.nazca('setElementAttr', workspace_element_id, { fontFamily: nzc_fonts[arrayOffset][0] } ).nazca('redrawElement', workspace_element_id);
+					
 				break;
 				
-				case 'center':
-					ta = nzc_textAlign.CENTER;
+				case 'font_size':
+					
+					$_space.nazca('setElementAttr', workspace_element_id, { fontSize: _value } ).nazca('redrawElement', workspace_element_id);
+					
 				break;
 				
-				case 'right':
-					ta = nzc_textAlign.RIGHT;
+				case 'color':
+					
+					$_space.nazca('setElementAttr', workspace_element_id, { color: _value } ).nazca('redrawElement', workspace_element_id);
+					
 				break;
+				
+				
+				case 'align':
+					
+					var ta;
+					switch( _value ) {
+						
+						case 'left':
+							ta = nzc_textAlign.LEFT;
+						break;
+						
+						case 'center':
+							ta = nzc_textAlign.CENTER;
+						break;
+						
+						case 'right':
+							ta = nzc_textAlign.RIGHT;
+						break;
+						
+						default:
+						break;
+						
+					}
+					
+					$_space.nazca('setElementAttr', workspace_element_id, { textAlign: ta } ).nazca('redrawElement', workspace_element_id);
+					
+				break;
+				
+				
+				case 'delete':
+				
+					$_space.nazca('removeElement', workspace_element_id );
+					
+				break;
+				
+				
+				case 'move':
+				
+					switch( _value ) {
+						
+						case 'forward':
+							$_space.nazca('moveElement', workspace_element_id, 'forward' );
+						break;
+						
+						case 'back':
+							$_space.nazca('moveElement', workspace_element_id, 'back' );
+						break;
+						
+						default:
+						break;
+						
+					}
+					
+				break;
+				
 				
 				default:
 				break;
 				
 			}
 			
-			$_controls.parents('.nazca-workspace').nazca('setElementAttr', workspace_element_id, { textAlign: ta } ).nazca('redrawElement', workspace_element_id);
-			
 		});
 		
-		$_controls.find('.nzc-t-font-dropdown>li>a').click(function(e) {
-			
-			$_controls.parents('.nazca-workspace').nazca('setElementAttr', workspace_element_id, { fontFamily: $(this).attr('data-font') } ).nazca('redrawElement', workspace_element_id);
-			
-		});
+
 		
-		$_controls.find('.nzc-t-color-dropdown>li>a').click(function(e) {
-			
-			$_controls.parents('.nazca-workspace').nazca('setElementAttr', workspace_element_id, { color: $(this).attr('data-color') } ).nazca('redrawElement', workspace_element_id);
-			
-		});
-	
 	}
 	
 }( jQuery ));
